@@ -355,8 +355,8 @@ public class DefaultLitePullConsumerImpl implements MQConsumerInner {
     }
 
     private void checkConfig() throws MQClientException {
-        // Check consumerGroup
-        Validators.checkGroup(this.defaultLitePullConsumer.getConsumerGroup());
+        // 校验 consumerGroup
+        Validators. checkGroup(this.defaultLitePullConsumer.getConsumerGroup());
 
         // Check consumerGroup name is not equal default consumer group name.
         if (this.defaultLitePullConsumer.getConsumerGroup().equals(MixAll.DEFAULT_CONSUMER_GROUP)) {
