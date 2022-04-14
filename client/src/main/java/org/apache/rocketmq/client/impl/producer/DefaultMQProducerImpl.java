@@ -148,7 +148,10 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         log.info("register a new checkForbiddenHook. hookName={}, allHookSize={}", checkForbiddenHook.hookName(),
             checkForbiddenHookList.size());
     }
-
+    
+    /**
+     * 事务client才会调用
+     */
     public void initTransactionEnv() {
         TransactionMQProducer producer = (TransactionMQProducer) this.defaultMQProducer;
         if (producer.getExecutorService() != null) {
@@ -188,11 +191,13 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 this.checkConfig();
 
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
+                    // 修改当前的 instanceName 为当前进程id
                     this.defaultMQProducer.changeInstanceNameToPID();
                 }
                 //接下来实例化mQClientFactory，这其实是生产者客户端的实例，
+                //MQClientManager为client的管理 单例,包含ConcurrentMap<String/* clientId */, MQClientInstance>
                 this.mQClientFactory = MQClientManager.getInstance().getOrCreateMQClientInstance(this.defaultMQProducer, rpcHook);
-
+                // 讲DefaultMQProducerImpl注册到MQClientInstance实例中。
                 boolean registerOK = mQClientFactory.registerProducer(this.defaultMQProducer.getProducerGroup(), this);
                 if (!registerOK) {
                     this.serviceState = ServiceState.CREATE_JUST;
@@ -221,7 +226,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             default:
                 break;
         }
-
+        //发送心跳到broker
         this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
 
         this.timer.scheduleAtFixedRate(new TimerTask() {

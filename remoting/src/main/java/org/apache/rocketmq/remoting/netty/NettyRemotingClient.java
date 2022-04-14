@@ -124,7 +124,8 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 return new Thread(r, "NettyClientPublicExecutor_" + this.threadIndex.incrementAndGet());
             }
         });
-
+        
+        //NioEventLoopGroup的初始化,1个线程管理多个socket链接。
         this.eventLoopGroupWorker = new NioEventLoopGroup(1, new ThreadFactory() {
             private AtomicInteger threadIndex = new AtomicInteger(0);
 
@@ -154,10 +155,11 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     }
 
     /**
-     * 主要进行netty初始化
+     * 主要进行netty初始化,网络通信
      */
     @Override
     public void start() {
+        //工作线程
         this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
             nettyClientConfig.getClientWorkerThreads(),
             new ThreadFactory() {
@@ -190,6 +192,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                     }
                     //单独制定excutor，用于执行handler
                     pipeline.addLast(
+                            //工作线程
                         defaultEventExecutorGroup,
                         // 消息编码
                         new NettyEncoder(),

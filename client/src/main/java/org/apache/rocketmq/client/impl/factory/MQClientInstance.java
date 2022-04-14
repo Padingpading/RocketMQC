@@ -87,6 +87,7 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 public class MQClientInstance {
     private final static long LOCK_TIMEOUT_MILLIS = 3000;
     private final InternalLogger log = ClientLogger.getLog();
+    //客户端实例配置
     private final ClientConfig clientConfig;
     private final int instanceIndex;
     private final String clientId;
@@ -124,19 +125,22 @@ public class MQClientInstance {
     }
 
     public MQClientInstance(ClientConfig clientConfig, int instanceIndex, String clientId, RPCHook rpcHook) {
+        //客户端配置
         this.clientConfig = clientConfig;
+        //客户端实例序号,每增加一个实例，+1
         this.instanceIndex = instanceIndex;
+        //netty客户端配置
         this.nettyClientConfig = new NettyClientConfig();
         this.nettyClientConfig.setClientCallbackExecutorThreads(clientConfig.getClientCallbackExecutorThreads());
         this.nettyClientConfig.setUseTLS(clientConfig.isUseTLS());
         this.clientRemotingProcessor = new ClientRemotingProcessor(this);
+        //客户端的api实现,server会调用
         this.mQClientAPIImpl = new MQClientAPIImpl(this.nettyClientConfig, this.clientRemotingProcessor, rpcHook, clientConfig);
 
         if (this.clientConfig.getNamesrvAddr() != null) {
             this.mQClientAPIImpl.updateNameServerAddressList(this.clientConfig.getNamesrvAddr());
             log.info("user specified name server address: {}", this.clientConfig.getNamesrvAddr());
         }
-
         this.clientId = clientId;
 
         this.mQAdminImpl = new MQAdminImpl(this);
@@ -228,6 +232,7 @@ public class MQClientInstance {
                 case CREATE_JUST:
                     this.serviceState = ServiceState.START_FAILED;
                     // If not specified,looking address from name server
+                    // 获取 nameServer 的地址
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }

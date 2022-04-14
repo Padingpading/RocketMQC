@@ -151,6 +151,7 @@ public abstract class NettyRemotingAbstract {
      * @throws Exception if there were any error while processing the incoming command.
      */
     public void processMessageReceived(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
+        //远程请求对象
         final RemotingCommand cmd = msg;
         if (cmd != null) {
             switch (cmd.getType()) {
@@ -192,8 +193,12 @@ public abstract class NettyRemotingAbstract {
      * @param cmd request command.
      */
     public void processRequestCommand(final ChannelHandlerContext ctx, final RemotingCommand cmd) {
+        //HashMap<Integer/* request code */, Pair<NettyRequestProcessor, ExecutorService>> processorTable
+        //client在初始化的时候回注册 请求code 请求执行器,和工作线程
+        //根据请求类型,获取到请求处理器,和线程池。
         final Pair<NettyRequestProcessor, ExecutorService> matched = this.processorTable.get(cmd.getCode());
         final Pair<NettyRequestProcessor, ExecutorService> pair = null == matched ? this.defaultRequestProcessor : matched;
+        //requetsId,标明请求。
         final int opaque = cmd.getOpaque();
 
         if (pair != null) {
