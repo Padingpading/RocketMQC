@@ -113,6 +113,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     private ArrayList<CheckForbiddenHook> checkForbiddenHookList = new ArrayList<CheckForbiddenHook>();
     private int zipCompressLevel = Integer.parseInt(System.getProperty(MixAll.MESSAGE_COMPRESS_LEVEL, "5"));
     private MQFaultStrategy mqFaultStrategy = new MQFaultStrategy();
+    //异步线程池
     private ExecutorService asyncSenderExecutor;
 
     public DefaultMQProducerImpl(final DefaultMQProducer defaultMQProducer) {
@@ -498,7 +499,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         send(msg, sendCallback, this.defaultMQProducer.getSendMsgTimeout());
     }
 
-    /**
+    /**异步发送
      * It will be removed at 4.4.0 cause for exception handling and the wrong Semantics of timeout. A new one will be
      * provided in next version
      *

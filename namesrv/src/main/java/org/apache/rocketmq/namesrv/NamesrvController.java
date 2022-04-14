@@ -78,13 +78,14 @@ public class NamesrvController {
         this.kvConfigManager.load();
         //初始化Netty服务器
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
-
+        //开始定时任务，每隔10s扫描一次broker,移除不活跃的broker
         this.remotingExecutor =
             Executors.newFixedThreadPool(nettyServerConfig.getServerWorkerThreads(), new ThreadFactoryImpl("RemotingExecutorThread_"));
 
         //核心！ 请求处理器，是NameServer用来处理网络请求的组件
         this.registerProcessor();
-
+        
+        //开始定时任务，每隔10s扫描一次broker,移除不活跃的broker
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -93,7 +94,7 @@ public class NamesrvController {
                 NamesrvController.this.routeInfoManager.scanNotActiveBroker();
             }
         }, 5, 10, TimeUnit.SECONDS);
-
+        //每隔10s打印依次KV配置。
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -156,6 +157,7 @@ public class NamesrvController {
     }
     //启动Netty绑定并启动监听端口
     public void start() throws Exception {
+        //netty客户端启动
         this.remotingServer.start();
 
         if (this.fileWatchService != null) {
@@ -164,8 +166,11 @@ public class NamesrvController {
     }
 
     public void shutdown() {
+        //NettyRemoteServer
         this.remotingServer.shutdown();
+        //线程池
         this.remotingExecutor.shutdown();
+        //线程池
         this.scheduledExecutorService.shutdown();
 
         if (this.fileWatchService != null) {

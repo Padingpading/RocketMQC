@@ -73,12 +73,13 @@ public class NamesrvStartup {
         //PackageConflictDetect.detectFastjson();
 
         Options options = ServerUtil.buildCommandlineOptions(new Options());
+        //解析命令行
         commandLine = ServerUtil.parseCmdLine("mqnamesrv", args, buildCommandlineOptions(options), new PosixParser());
         if (null == commandLine) {
             System.exit(-1);
             return null;
         }
-
+        //netty server
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(9876);
@@ -98,7 +99,7 @@ public class NamesrvStartup {
                 in.close();
             }
         }
-
+        //-p 打印配置信息
         if (commandLine.hasOption('p')) {
             InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_CONSOLE_NAME);
             MixAll.printObjectProperties(console, namesrvConfig);
@@ -145,7 +146,9 @@ public class NamesrvStartup {
             System.exit(-3);
         }
 
-        // virtual-machine shutdown hook. 添加一个初始化但是并没开始的钩子线程，在关闭的时候会调用controller.shutdown();
+        // virtual-machine shutdown hook.
+        // 添加一个初始化但是并没开始的钩子线程，在关闭的时候会调用controller.shutdown();
+        //jvm关闭之后,关闭资源。
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, new Callable<Void>() {
             @Override
             public Void call() throws Exception {

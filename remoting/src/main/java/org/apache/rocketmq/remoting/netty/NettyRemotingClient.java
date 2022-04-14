@@ -94,7 +94,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
 
     private final ExecutorService publicExecutor;
 
-    /**
+    /**回调函数的线程池。
      * Invoke the callback methods in this executor when process response.
      */
     private ExecutorService callbackExecutor;

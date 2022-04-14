@@ -289,27 +289,31 @@ public abstract class NettyRemotingAbstract {
         }
     }
 
-    /**
+    /**Server的响应
      * Process response from remote peer to the previous issued requests.
      *
      * @param ctx channel handler context.
      * @param cmd response command instance.
      */
     public void processResponseCommand(ChannelHandlerContext ctx, RemotingCommand cmd) {
+        //requestId
         final int opaque = cmd.getOpaque();
+        //获取ResponseFuture
         final ResponseFuture responseFuture = responseTable.get(opaque);
         if (responseFuture != null) {
             responseFuture.setResponseCommand(cmd);
 
             responseTable.remove(opaque);
-
+            
             if (responseFuture.getInvokeCallback() != null) {
+                //回调函数
                 executeInvokeCallback(responseFuture);
             } else {
                 responseFuture.putResponse(cmd);
                 responseFuture.release();
             }
         } else {
+            //没有ResponseFuture
             log.warn("receive response, but not matched any request, " + RemotingHelper.parseChannelRemoteAddr(ctx.channel()));
             log.warn(cmd.toString());
         }
@@ -328,6 +332,7 @@ public abstract class NettyRemotingAbstract {
                     @Override
                     public void run() {
                         try {
+                            //执行回调函数。
                             responseFuture.executeInvokeCallback();
                         } catch (Throwable e) {
                             log.warn("execute callback in executor exception, and callback throw", e);

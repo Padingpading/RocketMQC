@@ -852,10 +852,11 @@ public class BrokerController {
     }
 
     public void start() throws Exception {
+        //消息存储
         if (this.messageStore != null) {
             this.messageStore.start();
         }
-
+        //NettyRemotingServer，客户端的是NettyRemotingClient(producer和consumer)
         if (this.remotingServer != null) {
             this.remotingServer.start();
         }
