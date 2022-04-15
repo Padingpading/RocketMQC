@@ -142,6 +142,7 @@ public class BrokerOuterAPI {
             final byte[] body = requestBody.encode(compressed);
             final int bodyCrc32 = UtilAll.crc32(body);
             requestHeader.setBodyCrc32(bodyCrc32);
+            //等所有的nameserver同步完毕
             final CountDownLatch countDownLatch = new CountDownLatch(nameServerAddressList.size());
             for (final String namesrvAddr : nameServerAddressList) {
                 brokerOuterExecutor.execute(new Runnable() {
@@ -180,11 +181,15 @@ public class BrokerOuterAPI {
         final byte[] body
     ) throws RemotingCommandException, MQBrokerException, RemotingConnectException, RemotingSendRequestException, RemotingTimeoutException,
         InterruptedException {
+        // 构建请求
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.REGISTER_BROKER, requestHeader);
         request.setBody(body);
-
+        // 处理发送操作：sendOneWay
         if (oneway) {
             try {
+                // 注册操作
+                //所以，所谓的注册操作，就是当nameServer发送一条code为RequestCode.REGISTER_BROKER的消息，消息里会带上当前broker的topic信息、版本号等。
+                //DefaultRequestProcessor.processRequest
                 this.remotingClient.invokeOneway(namesrvAddr, request, timeoutMills);
             } catch (RemotingTooMuchRequestException e) {
                 // Ignore
@@ -219,6 +224,7 @@ public class BrokerOuterAPI {
         final String brokerName,
         final long brokerId
     ) {
+        // 获取所有的 nameServer，遍历发送注销消息
         List<String> nameServerAddressList = this.remotingClient.getNameServerAddressList();
         if (nameServerAddressList != null) {
             for (String namesrvAddr : nameServerAddressList) {
@@ -244,8 +250,9 @@ public class BrokerOuterAPI {
         requestHeader.setBrokerId(brokerId);
         requestHeader.setBrokerName(brokerName);
         requestHeader.setClusterName(clusterName);
+        // 发送的注销消息：RequestCode.UNREGISTER_BROKER
         RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.UNREGISTER_BROKER, requestHeader);
-
+        //最终调用的是RemotingClient#invokeSync进行消息发送，请求code是RequestCode.UNREGISTER_BROKER，这就与NameServer接收broker的注销消息对应上了。
         RemotingCommand response = this.remotingClient.invokeSync(namesrvAddr, request, 3000);
         assert response != null;
         switch (response.getCode()) {
@@ -258,7 +265,17 @@ public class BrokerOuterAPI {
 
         throw new MQBrokerException(response.getCode(), response.getRemark(), brokerAddr);
     }
-
+    
+    /**
+     * 这个方法里，先是遍历所有的nameServer，向每个nameServer都发送一条code为RequestCode.QUERY_DATA_VERSION的参数，参数为当前broker的DataVersion，
+     * 当nameServer收到消息后，就返回nameServer中保存的、与当前broker对应的DataVersion，当两者版本不相等时，就表明当前broker发生了变化，需要重新注册。
+     *从DataVersion的equals()方法来看，只有当timestamp与counter都相等时，两个DataVersion对象才相等。那这两个值会在哪里被修改呢？
+     * 从DataVersion#nextVersion方法的调用情况来看，引起这两个值的变化主要有两种：
+     *      broker 上新创建了一个 topic
+     *      topic的发了的变化
+     * 在这两种情况下，DataVersion#nextVersion方法被调用，从而引起DataVersion的改变。
+     * DataVersion改变了，就表明当前broker需要向nameServer注册了。
+     */
     public List<Boolean> needRegister(
         final String clusterName,
         final String brokerAddr,
@@ -267,9 +284,11 @@ public class BrokerOuterAPI {
         final TopicConfigSerializeWrapper topicConfigWrapper,
         final int timeoutMills) {
         final List<Boolean> changedList = new CopyOnWriteArrayList<>();
+        // 获取所有的 nameServer
         List<String> nameServerAddressList = this.remotingClient.getNameServerAddressList();
         if (nameServerAddressList != null && nameServerAddressList.size() > 0) {
             final CountDownLatch countDownLatch = new CountDownLatch(nameServerAddressList.size());
+            // 遍历所有的nameServer,逐一发送请求
             for (final String namesrvAddr : nameServerAddressList) {
                 brokerOuterExecutor.execute(new Runnable() {
                     @Override
@@ -280,8 +299,11 @@ public class BrokerOuterAPI {
                             requestHeader.setBrokerId(brokerId);
                             requestHeader.setBrokerName(brokerName);
                             requestHeader.setClusterName(clusterName);
+                            // 向nameServer发送消息，命令是 RequestCode.QUERY_DATA_VERSION
                             RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.QUERY_DATA_VERSION, requestHeader);
+                            // 把当前的 DataVersion 发到 nameServer
                             request.setBody(topicConfigWrapper.getDataVersion().encode());
+                            // 发请求到nameServer
                             RemotingCommand response = remotingClient.invokeSync(namesrvAddr, request, timeoutMills);
                             DataVersion nameServerDataVersion = null;
                             Boolean changed = false;
@@ -292,7 +314,9 @@ public class BrokerOuterAPI {
                                     changed = queryDataVersionResponseHeader.getChanged();
                                     byte[] body = response.getBody();
                                     if (body != null) {
+                                        // 拿到 DataVersion
                                         nameServerDataVersion = DataVersion.decode(body, DataVersion.class);
+                                        // 这里是判断的关键
                                         if (!topicConfigWrapper.getDataVersion().equals(nameServerDataVersion)) {
                                             changed = true;
                                         }
@@ -397,3 +421,4 @@ public class BrokerOuterAPI {
         remotingClient.registerRPCHook(rpcHook);
     }
 }
+

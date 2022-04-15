@@ -49,10 +49,16 @@ public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    
+     //主题队列
     private final HashMap<String/* topic */, List<QueueData>> topicQueueTable;
+    //broker地址
     private final HashMap<String/* brokerName */, BrokerData> brokerAddrTable;
+    //集群地址
     private final HashMap<String/* clusterName */, Set<String/* brokerName */>> clusterAddrTable;
+    //心跳相关信息
     private final HashMap<String/* brokerAddr */, BrokerLiveInfo> brokerLiveTable;
+    //消息过滤。
     private final HashMap<String/* brokerAddr */, List<String>/* Filter Server */> filterServerTable;
 
     public RouteInfoManager() {
@@ -145,7 +151,9 @@ public class RouteInfoManager {
                     brokerData = new BrokerData(clusterName, brokerName, new HashMap<Long, String>());
                     this.brokerAddrTable.put(brokerName, brokerData);
                 }
+                //更新brokerData中的brokerAddrs
                 Map<Long, String> brokerAddrsMap = brokerData.getBrokerAddrs();
+                //考虑到可能出现master挂了，slave变成master的情况，这时候brokerId会变成0，这时候需要把老的brokerAddr给删除
                 //Switch slave to master: first remove <1, IP:PORT> in namesrv, then add <0, IP:PORT>
                 //The same IP:PORT must only have one record in brokerAddrTable
                 Iterator<Entry<Long, String>> it = brokerAddrsMap.entrySet().iterator();
@@ -155,10 +163,11 @@ public class RouteInfoManager {
                         it.remove();
                     }
                 }
-
+                //更新brokerAddrs，根据返回的oldAddr判断是否是第一次注册的broker
                 String oldAddr = brokerData.getBrokerAddrs().put(brokerId, brokerAddr);
                 registerFirst = registerFirst || (null == oldAddr);
-
+                
+                //如过Broker是Master，并且Broker的Topic配置信息发生变化或者是首次注册，需要创建或更新Topic路由元数据，填充topicQueueTable
                 if (null != topicConfigWrapper
                     && MixAll.MASTER_ID == brokerId) {
                     if (this.isBrokerTopicConfigChanged(brokerAddr, topicConfigWrapper.getDataVersion())
@@ -166,6 +175,7 @@ public class RouteInfoManager {
                         ConcurrentMap<String, TopicConfig> tcTable =
                             topicConfigWrapper.getTopicConfigTable();
                         if (tcTable != null) {
+                            //创建或更新Topic路由元数据
                             for (Map.Entry<String, TopicConfig> entry : tcTable.entrySet()) {
                                 this.createAndUpdateQueueData(brokerName, entry.getValue());
                             }
@@ -183,7 +193,7 @@ public class RouteInfoManager {
                 if (null == prevBrokerLiveInfo) {
                     log.info("new broker registered, {} HAServer: {}", brokerAddr, haServerAddr);
                 }
-
+                //注册Broker的filterServer地址列表
                 if (filterServerList != null) {
                     if (filterServerList.isEmpty()) {
                         this.filterServerTable.remove(brokerAddr);
@@ -191,7 +201,8 @@ public class RouteInfoManager {
                         this.filterServerTable.put(brokerAddr, filterServerList);
                     }
                 }
-
+                
+                //如果此Broker为从节点，则需要查找Broker Master的节点信息，并更新对应masterAddr属性
                 if (MixAll.MASTER_ID != brokerId) {
                     String masterAddr = brokerData.getBrokerAddrs().get(MixAll.MASTER_ID);
                     if (masterAddr != null) {
@@ -779,6 +790,7 @@ public class RouteInfoManager {
         return topicList.encode();
     }
 }
+
 
 class BrokerLiveInfo {
     private long lastUpdateTimestamp;

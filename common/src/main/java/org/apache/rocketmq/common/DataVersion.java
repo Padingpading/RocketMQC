@@ -20,7 +20,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.rocketmq.remoting.protocol.RemotingSerializable;
 
 public class DataVersion extends RemotingSerializable {
+    // 时间戳
     private long timestamp = System.currentTimeMillis();
+    // 计数器，可以理解为最近的版本号
     private AtomicLong counter = new AtomicLong(0);
 
     public void assignNewOne(final DataVersion dataVersion) {
@@ -48,7 +50,10 @@ public class DataVersion extends RemotingSerializable {
     public void setCounter(AtomicLong counter) {
         this.counter = counter;
     }
-
+    
+    /**
+     * equals 方法，当 timestamp 与 counter 都相等时，则两者相等
+     */
     @Override
     public boolean equals(final Object o) {
         if (this == o)
