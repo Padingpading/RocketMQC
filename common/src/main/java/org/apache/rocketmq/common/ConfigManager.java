@@ -27,14 +27,17 @@ public abstract class ConfigManager {
     public abstract String encode();
 
     public boolean load() {
+        //获取文件名称,不同子类获取的名称不同
         String fileName = null;
         try {
+            //从子类中获取名称
             fileName = this.configFilePath();
             String jsonString = MixAll.file2String(fileName);
 
             if (null == jsonString || jsonString.length() == 0) {
                 return this.loadBak();
             } else {
+                //不同子类的文件解析
                 this.decode(jsonString);
                 log.info("load " + fileName + " OK");
                 return true;
