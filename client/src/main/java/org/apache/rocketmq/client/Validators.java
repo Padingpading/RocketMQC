@@ -104,16 +104,17 @@ public class Validators {
     }
 
     public static void checkTopic(String topic) throws MQClientException {
+        //主题不能为空
         if (UtilAll.isBlank(topic)) {
             throw new MQClientException("The specified topic is blank", null);
         }
-
+        //主题格式校验
         if (!regularExpressionMatcher(topic, PATTERN)) {
             throw new MQClientException(String.format(
                 "The specified topic[%s] contains illegal characters, allowing only %s", topic,
                 VALID_PATTERN_STR), null);
         }
-
+        //主题长度校验
         if (topic.length() > TOPIC_MAX_LENGTH) {
             throw new MQClientException(
                 String.format("The specified topic is longer than topic max length %d.", TOPIC_MAX_LENGTH), null);

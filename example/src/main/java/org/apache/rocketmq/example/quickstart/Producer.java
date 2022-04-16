@@ -27,12 +27,13 @@ import org.apache.rocketmq.remoting.common.RemotingHelper;
  */
 public class Producer {
     public static void main(String[] args) throws MQClientException, InterruptedException {
-
+        System.setProperty("rocketmq.namesrv.domain","127.0.0.1");
+        System.setProperty("rocketmq.namesrv.domain.subgroup","nameServer");
         /*
          * Instantiate with a producer group name.
          */
         DefaultMQProducer producer = new DefaultMQProducer("producer_group");
-        producer.setNamesrvAddr("127.0.0.1:9876");
+//        producer.setNamesrvAddr("127.0.0.1:9876");
         /*
          * Specify name server addresses.
          * <p/>
@@ -48,7 +49,7 @@ public class Producer {
         /*
          * Launch the instance.
          */
-        producer.setNamesrvAddr("127.0.0.1:9876"); // <x> 哈哈哈哈
+//        producer.setNamesrvAddr("127.0.0.1:9876"); // <x> 哈哈哈哈
         producer.start();
 
         for (int i = 0; i < 1000; i++) {
@@ -65,7 +66,7 @@ public class Producer {
                 /*
                  * Call send message to deliver message to one of brokers.
                  */
-                SendResult sendResult = producer.send(msg,100000);
+                SendResult sendResult = producer.send(msg);
 
                 System.out.printf("%s%n", sendResult);
             } catch (Exception e) {

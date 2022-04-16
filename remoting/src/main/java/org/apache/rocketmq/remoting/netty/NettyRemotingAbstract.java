@@ -325,6 +325,7 @@ public abstract class NettyRemotingAbstract {
      */
     private void executeInvokeCallback(final ResponseFuture responseFuture) {
         boolean runInThisThread = false;
+        // 如果有线程池，就提交到线程池中执行
         ExecutorService executor = this.getCallbackExecutor();
         if (executor != null) {
             try {
@@ -351,6 +352,7 @@ public abstract class NettyRemotingAbstract {
 
         if (runInThisThread) {
             try {
+                // 直接执行
                 responseFuture.executeInvokeCallback();
             } catch (Throwable e) {
                 log.warn("executeInvokeCallback Exception", e);
@@ -403,7 +405,9 @@ public abstract class NettyRemotingAbstract {
         while (it.hasNext()) {
             Entry<Integer, ResponseFuture> next = it.next();
             ResponseFuture rep = next.getValue();
-
+            
+            // 判断时间，时间到了才转移到 rfList 中
+            //tTimeoutMillis 3000 +1000 = 4s
             if ((rep.getBeginTimestamp() + rep.getTimeoutMillis() + 1000) <= System.currentTimeMillis()) {
                 rep.release();
                 it.remove();
@@ -411,7 +415,8 @@ public abstract class NettyRemotingAbstract {
                 log.warn("remove timeout request, " + rep);
             }
         }
-
+        
+        // 处理返回结果
         for (ResponseFuture rf : rfList) {
             try {
                 executeInvokeCallback(rf);
@@ -428,9 +433,13 @@ public abstract class NettyRemotingAbstract {
 
         try {
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis, null, null);
-            this.responseTable.put(opaque, responseFuture); //opaque看作是请求id，放入到responseTable中保存，用于接收到消息时的处理
+            //opaque看作是请求id，放入到responseTable中保存，用于接收到消息时的处理
+            this.responseTable.put(opaque, responseFuture);
             final SocketAddress addr = channel.remoteAddress();
-            channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
+            // 发送请求
+            channel.writeAndFlush(request)
+                    // 监听结果
+                    .addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture f) throws Exception {
                     if (f.isSuccess()) {
@@ -480,6 +489,7 @@ public abstract class NettyRemotingAbstract {
         final InvokeCallback invokeCallback)
         throws InterruptedException, RemotingTooMuchRequestException, RemotingTimeoutException, RemotingSendRequestException {
         long beginStartTime = System.currentTimeMillis();
+        //requestId
         final int opaque = request.getOpaque();
         //信号量使用来处理超时事件，semaphoreAsync的值默认是64
         boolean acquired = this.semaphoreAsync.tryAcquire(timeoutMillis, TimeUnit.MILLISECONDS);
@@ -490,12 +500,16 @@ public abstract class NettyRemotingAbstract {
                 once.release();
                 throw new RemotingTimeoutException("invokeAsyncImpl call timeout");
             }
-
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis - costTime, invokeCallback, once);
+            // 添加responseTable中
             this.responseTable.put(opaque, responseFuture);
             try {
-                channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
-                    @Override
+                // netty的异步操作
+                channel.writeAndFlush(request)
+                        // 监听结果
+                        .addListener(new ChannelFutureListener() {
+                            // 处理完成的操作
+                            @Override
                     public void operationComplete(ChannelFuture f) throws Exception {
                         if (f.isSuccess()) {
                             responseFuture.setSendRequestOK(true);

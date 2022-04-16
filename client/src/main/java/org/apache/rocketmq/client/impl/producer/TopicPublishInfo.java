@@ -67,10 +67,14 @@ public class TopicPublishInfo {
     }
 
     public MessageQueue selectOneMessageQueue(final String lastBrokerName) {
+        //重试会携带上次发送失败的Brokername
         if (lastBrokerName == null) {
+            //第一次发送
             return selectOneMessageQueue();
         } else {
+            //第n次发送
             for (int i = 0; i < this.messageQueueList.size(); i++) {
+                //
                 int index = this.sendWhichQueue.getAndIncrement();
                 int pos = Math.abs(index) % this.messageQueueList.size();
                 if (pos < 0)
@@ -85,10 +89,13 @@ public class TopicPublishInfo {
     }
 
     public MessageQueue selectOneMessageQueue() {
+        //获取自增次数
         int index = this.sendWhichQueue.getAndIncrement();
+        //取模
         int pos = Math.abs(index) % this.messageQueueList.size();
         if (pos < 0)
             pos = 0;
+        //返回队列信息
         return this.messageQueueList.get(pos);
     }
 

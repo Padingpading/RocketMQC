@@ -31,19 +31,25 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
 
     @Override
     public void updateFaultItem(final String name, final long currentLatency, final long notAvailableDuration) {
+        //通过borker名字获取
         FaultItem old = this.faultItemTable.get(name);
         if (null == old) {
+            //设置broker
             final FaultItem faultItem = new FaultItem(name);
+            //设置延迟时间
             faultItem.setCurrentLatency(currentLatency);
+            //设置broker的可用时间
             faultItem.setStartTimestamp(System.currentTimeMillis() + notAvailableDuration);
-
+            //设置
             old = this.faultItemTable.putIfAbsent(name, faultItem);
             if (old != null) {
                 old.setCurrentLatency(currentLatency);
                 old.setStartTimestamp(System.currentTimeMillis() + notAvailableDuration);
             }
         } else {
+            //设置发送时间间隔
             old.setCurrentLatency(currentLatency);
+            //
             old.setStartTimestamp(System.currentTimeMillis() + notAvailableDuration);
         }
     }
@@ -52,6 +58,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
     public boolean isAvailable(final String name) {
         final FaultItem faultItem = this.faultItemTable.get(name);
         if (faultItem != null) {
+            //当前时间是否超过预估的开始时间
             return faultItem.isAvailable();
         }
         return true;
@@ -64,6 +71,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
 
     @Override
     public String pickOneAtLeast() {
+        //获取全部的
         final Enumeration<FaultItem> elements = this.faultItemTable.elements();
         List<FaultItem> tmpList = new LinkedList<FaultItem>();
         while (elements.hasMoreElements()) {

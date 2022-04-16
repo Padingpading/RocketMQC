@@ -232,21 +232,22 @@ public class MQClientInstance {
                 case CREATE_JUST:
                     this.serviceState = ServiceState.START_FAILED;
                     // If not specified,looking address from name server
-                    // 获取 nameServer 的地址
+                    // 获取 nameServer 的地址,如果NamesrvAddr本地没有配置,从远程获取
                     if (null == this.clientConfig.getNamesrvAddr()) {
                         this.mQClientAPIImpl.fetchNameServerAddr();
                     }
                     // Start request-response channel
-                    //初始化NettyClient
+                    // 启动远程服务，这个方法只是装配了netty客户端相关配置
+                    // 注意：1. 这里是netty客户端，2. 这里并没有创建连接
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
-                    //初始化定时任务。
+                    //初始化获取 nameServer 的地址,如果NamesrvAddr本地没有配置,从远程获取
                     this.startScheduledTask();
-                    // Start pull service
+                    // pull服务，仅对consumer启作用
                     this.pullMessageService.start();
-                    // Start rebalance service
+                    // 启动负载均衡服务，仅对consumer启作用
                     this.rebalanceService.start();
-                    // Start push service
+                    // 启用内部的 producer
                     this.defaultMQProducer.getDefaultMQProducerImpl().start(false);
                     log.info("the client factory [{}] start OK", this.clientId);
                     this.serviceState = ServiceState.RUNNING;
@@ -260,7 +261,7 @@ public class MQClientInstance {
     }
 
     private void startScheduledTask() {
-        //获取nameserver信息
+        // 如果创建producer时，没有指定namesrv,从
         if (null == this.clientConfig.getNamesrvAddr()) {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
@@ -274,7 +275,7 @@ public class MQClientInstance {
                 }
             }, 1000 * 10, 1000 * 60 * 2, TimeUnit.MILLISECONDS);
         }
-        //从Nameserver更新topic信息
+        // 定时更新topic的路由信息
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -542,13 +543,16 @@ public class MQClientInstance {
         final HeartbeatData heartbeatData = this.prepareHeartbeatData();
         final boolean producerEmpty = heartbeatData.getProducerDataSet().isEmpty();
         final boolean consumerEmpty = heartbeatData.getConsumerDataSet().isEmpty();
+        // 两个都没有，在直接return
         if (producerEmpty && consumerEmpty) {
             log.warn("sending heartbeat, but no consumer and no producer. [{}]", this.clientId);
             return;
         }
 
         if (!this.brokerAddrTable.isEmpty()) {
+            //发送心跳次数
             long times = this.sendHeartbeatTimesTotal.getAndIncrement();
+            //ConcurrentMap<String/* Broker Name */, HashMap<Long/* brokerId */, String/* address */>>
             Iterator<Entry<String, HashMap<Long, String>>> it = this.brokerAddrTable.entrySet().iterator();
             while (it.hasNext()) {
                 Entry<String, HashMap<Long, String>> entry = it.next();

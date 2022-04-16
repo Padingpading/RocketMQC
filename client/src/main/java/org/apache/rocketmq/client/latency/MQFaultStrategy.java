@@ -56,18 +56,22 @@ public class MQFaultStrategy {
     }
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
+        //最少延迟
         if (this.sendLatencyFaultEnable) {
             try {
                 //producer获取messageQueue：获取到一个自增长的index，对topic的messageQueue进行取模操作
+                //获取当前线程的自增id
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
                     int pos = Math.abs(index++) % tpInfo.getMessageQueueList().size();
                     if (pos < 0)
                         pos = 0;
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
+                    //broker    不可用
                     if (latencyFaultTolerance.isAvailable(mq.getBrokerName()))
                         return mq;
                 }
+                // 经过上面的步骤还没找到 broker，从不可用的broker中获取一条记录，获取时同样使用取模处理
 
                 final String notBestBroker = latencyFaultTolerance.pickOneAtLeast();
                 int writeQueueNums = tpInfo.getQueueIdByBroker(notBestBroker);
@@ -87,17 +91,24 @@ public class MQFaultStrategy {
 
             return tpInfo.selectOneMessageQueue();
         }
-
+        //默认
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
     public void updateFaultItem(final String brokerName, final long currentLatency, boolean isolation) {
+        //是否有策略根据发送延迟配置
         if (this.sendLatencyFaultEnable) {
+            //返回broker的可用时间范围值。
             long duration = computeNotAvailableDuration(isolation ? 30000 : currentLatency);
             this.latencyFaultTolerance.updateFaultItem(brokerName, currentLatency, duration);
         }
     }
-
+    
+//    private long[] latencyMax = {50L, 100L, 550L, 1000L, 2000L, 3000L, 15000L};
+//    private long[] notAvailableDuration = {0L, 0L, 30000L, 60000L, 120000L, 180000L, 600000L};
+    //rocketmq的经验值。
+    // latencyMax 发送毫秒数
+    //notAvailableDuration需要规避的时间。
     private long computeNotAvailableDuration(final long currentLatency) {
         for (int i = latencyMax.length - 1; i >= 0; i--) {
             if (currentLatency >= latencyMax[i])

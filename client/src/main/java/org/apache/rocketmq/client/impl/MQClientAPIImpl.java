@@ -554,17 +554,21 @@ public class MQClientAPIImpl {
                         }
                         //有sendCallback，则发送消息的结果通过SendMessageContext封装，并回调 sendCallback.onSuccess
                         try {
+                            // 这里执行 sendCallback 的 onSuccess(...) 方法
                             sendCallback.onSuccess(sendResult);
                         } catch (Throwable e) {
                         }
 
                         producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), false);
                     } catch (Exception e) {
+                        //响应失败
+                        // 处理各异常
                         producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
                         onExceptionImpl(brokerName, msg, timeoutMillis - cost, request, sendCallback, topicPublishInfo, instance,
                             retryTimesWhenSendFailed, times, e, context, false, producer);
                     }
                 } else {
+                    //响应失败
                     producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
                     if (!responseFuture.isSendRequestOK()) {
                         MQClientException ex = new MQClientException("send request failed", responseFuture.getCause());
@@ -599,6 +603,7 @@ public class MQClientAPIImpl {
         final boolean needRetry,
         final DefaultMQProducerImpl producer
     ) {
+        //重试操作,变为同步
         int tmp = curTimes.incrementAndGet();
         if (needRetry && tmp <= timesTotal) {
             String retryBrokerName = brokerName;//by default, it will send to the same broker
@@ -636,6 +641,7 @@ public class MQClientAPIImpl {
             }
 
             try {
+                //重试操作
                 sendCallback.onException(e);
             } catch (Exception ignored) {
             }
